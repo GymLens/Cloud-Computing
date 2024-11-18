@@ -1,17 +1,25 @@
 package main
 
 import (
+	"log"
+
 	"github.com/GymLens/Cloud-Computing/config"
 	"github.com/GymLens/Cloud-Computing/internal/server"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Load configuration
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("No .env file found. Relying on environment variables.")
+	}
+
 	cfg := config.LoadConfig()
 
-	// Initialize the server with the loaded configuration
 	srv := server.NewServer(cfg)
 
-	// Start the server
+	srv.App.Use(logger.New())
+
 	srv.Start()
 }

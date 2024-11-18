@@ -5,6 +5,8 @@ import (
 
 	"github.com/GymLens/Cloud-Computing/config"
 	"github.com/GymLens/Cloud-Computing/internal/server/router"
+	"github.com/GymLens/Cloud-Computing/pkg/auth"
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -16,7 +18,14 @@ type Server struct {
 func NewServer(cfg *config.Config) *Server {
 	app := fiber.New()
 
-	router.SetupRoutes(app)
+	v := validator.New()
+
+	firebaseAuth, err := auth.NewFirebaseAuth()
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase Auth: %v", err)
+	}
+
+	router.SetupRoutes(app, firebaseAuth, cfg, v)
 
 	return &Server{
 		App:  app,

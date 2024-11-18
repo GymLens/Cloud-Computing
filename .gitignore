@@ -3,4 +3,10 @@
 /vendor/
 
 # Go modules
-/go.sum
+go.sum
+
+# Firebase account credentials
+/config/serviceAccountKey.json
+
+# Environment variables
+.env

@@ -9,6 +9,7 @@ type Config struct {
 	Port           string
 	DatabaseURL    string
 	FirebaseConfig string
+	FirebaseAPIKey string
 }
 
 func LoadConfig() *Config {
@@ -16,14 +17,15 @@ func LoadConfig() *Config {
 		Port:           getEnv("PORT", "8080"),
 		DatabaseURL:    getEnv("DATABASE_URL", ""),
 		FirebaseConfig: getEnv("FIREBASE_CONFIG", ""),
-	}
-
-	if cfg.DatabaseURL == "" {
-		log.Println("WARNING: DATABASE_URL is not set. Database integration is not enabled.")
+		FirebaseAPIKey: getEnv("FIREBASE_API_KEY", ""),
 	}
 
 	if cfg.FirebaseConfig == "" {
-		log.Println("WARNING: FIREBASE_CONFIG is not set. Firebase authentication is not enabled.")
+		log.Println("WARNING: FIREBASE_CONFIG is not set. Firebase authentication is disabled.")
+	}
+
+	if cfg.FirebaseAPIKey == "" {
+		log.Println("WARNING: FIREBASE_API_KEY is not set. Sign-In endpoint will not function.")
 	}
 
 	return cfg
