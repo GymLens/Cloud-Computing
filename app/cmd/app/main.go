@@ -1,25 +1,17 @@
 package main
 
 import (
-    "log"
-
-    "github.com/gofiber/fiber/v2"
+	"github.com/GymLens/Cloud-Computing/config"
+	"github.com/GymLens/Cloud-Computing/internal/server"
 )
 
 func main() {
-    app := fiber.New()
+	// Load configuration
+	cfg := config.LoadConfig()
 
-    // Health check route
-    app.Get("/api/ping", func(c *fiber.Ctx) error {
-        return c.JSON(fiber.Map{
-            "message": "pong",
-        })
-    })
+	// Initialize the server with the loaded configuration
+	srv := server.NewServer(cfg)
 
-    // Start server
-    port := "8080"
-    log.Printf("Starting server on port %s", port)
-    if err := app.Listen(":" + port); err != nil {
-        log.Fatalf("Failed to start server: %v", err)
-    }
+	// Start the server
+	srv.Start()
 }
