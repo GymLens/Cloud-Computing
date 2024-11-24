@@ -1,182 +1,84 @@
 package controller
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
+	"log"
+	"time"
 
-	firebaseAuthPkg "firebase.google.com/go/v4/auth" // Firebase Auth package
-	"github.com/GymLens/Cloud-Computing/config"
-	customAuthPkg "github.com/GymLens/Cloud-Computing/pkg/auth" // custom Auth package
-	"github.com/go-playground/validator/v10"
+	firebase "firebase.google.com/go"
+	"github.com/GymLens/Cloud-Computing/api"
+	"github.com/GymLens/Cloud-Computing/db"
+	"github.com/GymLens/Cloud-Computing/models"
+	"github.com/GymLens/Cloud-Computing/services"
 	"github.com/gofiber/fiber/v2"
 )
 
-// AuthController for auth-related ops
 type AuthController struct {
-	AuthClient firebaseAuthPkg.Client
-	Config     *config.Config
-	Validator  *validator.Validate
+	authService *services.AuthService
+	firebaseApp *firebase.App
 }
 
-// NewAuthController init a new AuthController.
-func NewAuthController(firebaseAuth *customAuthPkg.FirebaseAuth, cfg *config.Config, v *validator.Validate) *AuthController {
-	if firebaseAuth == nil || firebaseAuth.Client == nil {
-		return &AuthController{}
+func NewAuthController(app *firebase.App) *AuthController {
+	authService, err := services.NewAuthService(app)
+	if err != nil {
+		panic(err)
 	}
 	return &AuthController{
-		AuthClient: *firebaseAuth.Client,
-		Config:     cfg,
-		Validator:  v,
+		authService: authService,
+		firebaseApp: app,
 	}
 }
 
-// SignUpRequest for sign-up
-type SignUpRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=6"`
-	Name     string `json:"name" validate:"required"`
-}
-
-type SignUpResponse struct {
-	UID    string `json:"uid"`
-	Email  string `json:"email"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
-}
-
-// SignInRequest for sign-in
-type SignInRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=6"`
-}
-
-type SignInResponse struct {
-	IDToken      string `json:"idToken"`
-	RefreshToken string `json:"refreshToken"`
-	ExpiresIn    string `json:"expiresIn"`
-	TokenType    string `json:"tokenType"`
-}
-
-// SignUp handle via Firebase.
-func (ac *AuthController) SignUp(c *fiber.Ctx) error {
-	var req SignUpRequest
-
+func (ctr *AuthController) SignUp(c *fiber.Ctx) error {
+	var req api.SignUpRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Cannot parse JSON",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}
 
-	if err := ac.Validator.Struct(req); err != nil {
-		var errors []string
-		for _, err := range err.(validator.ValidationErrors) {
-			errors = append(errors, fmt.Sprintf("Field '%s' failed on the '%s' tag", err.Field(), err.Tag()))
-		}
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": errors,
-		})
-	}
-
-	// Create a new user with Firebase Auth
-	params := (&firebaseAuthPkg.UserToCreate{}).
-		Email(req.Email).
-		EmailVerified(false).
-		Password(req.Password).
-		DisplayName(req.Name).
-		Disabled(false)
-
-	userRecord, err := ac.AuthClient.CreateUser(context.Background(), params)
+	userRecord, err := ctr.authService.CreateUserWithEmailAndPassword(req.Email, req.Password, req.Name)
 	if err != nil {
-		var firebaseError map[string]interface{}
-		if err := json.Unmarshal([]byte(err.Error()), &firebaseError); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to parse Firebase error",
-			})
-		}
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": firebaseError["error"],
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	res := SignUpResponse{
-		UID:    userRecord.UID,
-		Email:  userRecord.Email,
-		Name:   userRecord.DisplayName,
-		Status: "User created successfully",
+	user := models.User{
+		UID:       userRecord.UID,
+		Name:      req.Name,
+		Email:     userRecord.Email,
+		Created:   time.Now(),
+		SignedIn:  time.Now(),
+		AvatarURL: "",
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(res)
+	if err := db.CreateUser(c.Context(), ctr.firebaseApp, &user); err != nil {
+		log.Printf("Error saving user data to Firestore: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save user data", "details": err.Error()})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"uid": user.UID, "email": user.Email, "name": user.Name})
 }
 
-// SignIn for user auth via Firebase Auth REST API.
-func (ac *AuthController) SignIn(c *fiber.Ctx) error {
-	if ac.Config == nil || ac.Config.FirebaseAPIKey == "" {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Firebase API Key is not configured",
-		})
-	}
-
-	var req SignInRequest
+func (ctr *AuthController) SignIn(c *fiber.Ctx) error {
+	var req api.SignInRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Cannot parse JSON",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}
 
-	// Validate the request payload
-	if err := ac.Validator.Struct(req); err != nil {
-		// Collect all validation errors
-		var errors []string
-		for _, err := range err.(validator.ValidationErrors) {
-			errors = append(errors, fmt.Sprintf("Field '%s' failed on the '%s' tag", err.Field(), err.Tag()))
-		}
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": errors,
-		})
-	}
-
-	// Prepare the payload for Firebase Auth REST API
-	payload := map[string]string{
-		"email":             req.Email,
-		"password":          req.Password,
-		"returnSecureToken": "true",
-	}
-	payloadBytes, _ := json.Marshal(payload)
-
-	// Make the POST request to Firebase Auth REST API
-	resp, err := http.Post(
-		fmt.Sprintf("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=%s", ac.Config.FirebaseAPIKey),
-		"application/json",
-		bytes.NewBuffer(payloadBytes),
-	)
+	idToken, err := ctr.authService.SignIn(req.Email, req.Password)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to communicate with Firebase Auth",
-		})
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		var firebaseError map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&firebaseError); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to parse Firebase error",
-			})
-		}
-		return c.Status(resp.StatusCode).JSON(fiber.Map{
-			"error": firebaseError["error"],
-		})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	var signInRes SignInResponse
-	if err := json.NewDecoder(resp.Body).Decode(&signInRes); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to parse Firebase Auth response",
-		})
+	// Get user by email to retrieve UID
+	userRecord, err := ctr.authService.GetUserByEmail(req.Email)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
 	}
 
-	return c.JSON(signInRes)
+	// Update SignedIn timestamp
+	if err := db.UpdateUser(c.Context(), ctr.firebaseApp, userRecord.UID, map[string]interface{}{
+		"signedIn": time.Now(),
+	}); err != nil {
+		log.Printf("Error updating user sign-in time: %v", err)
+	}
+
+	return c.JSON(fiber.Map{"token": idToken})
 }

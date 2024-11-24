@@ -1,147 +1,66 @@
 package controller
 
 import (
-	"strconv"
-	"sync"
-
-	"github.com/GymLens/Cloud-Computing/models"
+	"github.com/GymLens/Cloud-Computing/db"
+	"github.com/GymLens/Cloud-Computing/services"
 	"github.com/gofiber/fiber/v2"
+
+	firebase "firebase.google.com/go"
 )
 
 type UserController struct {
-	users  map[int64]*models.User
-	mu     sync.Mutex
-	nextID int64
+	firebaseApp *firebase.App
 }
 
-func NewUserController() *UserController {
+func NewUserController(app *firebase.App) *UserController {
 	return &UserController{
-		users:  make(map[int64]*models.User),
-		nextID: 1,
+		firebaseApp: app,
 	}
 }
 
-// CreateUser
-func (uc *UserController) CreateUser(c *fiber.Ctx) error {
-	var user models.User
+func (ctr *UserController) GetProfile(c *fiber.Ctx) error {
+	uid := c.Locals("uid").(string)
 
-	// Parse the request body into the User struct
-	if err := c.BodyParser(&user); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Cannot parse JSON",
-		})
-	}
-
-	if user.Email == "" || user.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Email and Name are required",
-		})
-	}
-
-	// Assign a unique ID and store the user
-	uc.mu.Lock()
-	user.ID = uc.nextID
-	uc.nextID++
-	uc.users[user.ID] = &user
-	uc.mu.Unlock()
-
-	return c.Status(fiber.StatusCreated).JSON(user)
-}
-
-// GetUser by ID
-func (uc *UserController) GetUser(c *fiber.Ctx) error {
-	idParam := c.Params("id")
-	id, err := strconv.ParseInt(idParam, 10, 64)
+	user, err := db.GetUser(c.Context(), ctr.firebaseApp, uid)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
-		})
-	}
-
-	uc.mu.Lock()
-	user, exists := uc.users[id]
-	uc.mu.Unlock()
-
-	if !exists {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
-		})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
 	return c.JSON(user)
 }
 
-// GetAllUsers
-func (uc *UserController) ListUsers(c *fiber.Ctx) error {
-	uc.mu.Lock()
-	users := make([]*models.User, 0, len(uc.users))
-	for _, user := range uc.users {
-		users = append(users, user)
-	}
-	uc.mu.Unlock()
+func (ctr *UserController) UploadAvatar(c *fiber.Ctx) error {
+	uid := c.Locals("uid").(string)
 
-	return c.JSON(users)
-}
-
-// UpdateUser by ID
-func (uc *UserController) UpdateUser(c *fiber.Ctx) error {
-	idParam := c.Params("id")
-	id, err := strconv.ParseInt(idParam, 10, 64)
+	file, err := c.FormFile("avatar")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Missing file"})
 	}
 
-	var updatedData models.User
-	if err := c.BodyParser(&updatedData); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Cannot parse JSON",
-		})
-	}
-
-	uc.mu.Lock()
-	user, exists := uc.users[id]
-	if !exists {
-		uc.mu.Unlock()
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
-		})
-	}
-
-	if updatedData.Email != "" {
-		user.Email = updatedData.Email
-	}
-	if updatedData.Name != "" {
-		user.Name = updatedData.Name
-	}
-
-	uc.mu.Unlock()
-
-	return c.JSON(user)
-}
-
-// DeleteUser by ID
-func (uc *UserController) DeleteUser(c *fiber.Ctx) error {
-	idParam := c.Params("id")
-	id, err := strconv.ParseInt(idParam, 10, 64)
+	src, err := file.Open()
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Unable to read file"})
+	}
+	defer src.Close()
+
+	storageService, err := services.NewStorageService(ctr.firebaseApp, "gym-lens-bucket")
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to initialize storage service"})
 	}
 
-	uc.mu.Lock()
-	_, exists := uc.users[id]
-	if !exists {
-		uc.mu.Unlock()
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
-		})
+	objectName := "avatars/" + uid + "/" + file.Filename
+	if err := storageService.UploadFile(c.Context(), objectName, src); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to upload file"})
 	}
 
-	delete(uc.users, id)
-	uc.mu.Unlock()
+	// Update user's avatar URL in Firestore (assuming the bucket is public or has proper permissions)
+	avatarURL := "https://storage.googleapis.com/" + storageService.BucketName + "/" + objectName
+	updateData := map[string]interface{}{
+		"avatarUrl": avatarURL,
+	}
+	if err := db.UpdateUser(c.Context(), ctr.firebaseApp, uid, updateData); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user data"})
+	}
 
-	return c.SendStatus(fiber.StatusNoContent) // 204 No Content
+	return c.JSON(fiber.Map{"message": "Avatar uploaded successfully", "avatarUrl": avatarURL})
 }

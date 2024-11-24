@@ -1,57 +1,38 @@
 package router
 
 import (
-	"github.com/GymLens/Cloud-Computing/config"
+	"context"
+	"log"
+
+	firebase "firebase.google.com/go"
 	"github.com/GymLens/Cloud-Computing/internal/server/controller"
-	"github.com/GymLens/Cloud-Computing/pkg/auth"
-	"github.com/go-playground/validator/v10"
+	"github.com/GymLens/Cloud-Computing/internal/server/middleware"
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, firebaseAuth *auth.FirebaseAuth, cfg *config.Config, v *validator.Validate) {
-	api := app.Group("/api")
+func SetupRoutes(app *fiber.App, firebaseApp *firebase.App) {
+	apiGroup := app.Group("/api")
 
-	api.Get("/ping", func(c *fiber.Ctx) error {
+	apiGroup.Get("/ping", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"message": "pong",
 		})
 	})
 
-	authController := controller.NewAuthController(firebaseAuth, cfg, v)
+	authController := controller.NewAuthController(firebaseApp)
+	userController := controller.NewUserController(firebaseApp)
 
-	// Auth routes
-	api.Post("/signup", authController.SignUp)
-	api.Post("/signin", authController.SignIn)
+	apiGroup.Post("/signup", authController.SignUp)
+	apiGroup.Post("/signin", authController.SignIn)
 
-	userController := controller.NewUserController()
-
-	// User routes
-	api.Post("/users", userController.CreateUser) // Create a new user
-	api.Get("/users", userController.ListUsers)   // List all users
-	api.Get("/users/:id", userController.GetUser) // Get a user by ID
-
-	// Protected routes (Update and Delete)
-	if firebaseAuth != nil && firebaseAuth.Client != nil {
-		protected := api.Group("/users")
-		protected.Use(firebaseAuth.Middleware()) // Apply Firebase Auth middleware
-
-		protected.Put("/:id", userController.UpdateUser)    // Update a user by ID
-		protected.Delete("/:id", userController.DeleteUser) // Delete a user by ID
-	} else {
-		// Log warning and block access if FirebaseAuth not init
-		protected := api.Group("/users")
-		protected.Use(func(c *fiber.Ctx) error {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Authentication is not enabled. Protected routes are unavailable.",
-			})
-		})
-
-		protected.Put("/:id", func(c *fiber.Ctx) error {
-			return nil
-		})
-
-		protected.Delete("/:id", func(c *fiber.Ctx) error {
-			return nil
-		})
+	// Protected routes
+	protected := apiGroup.Group("/user")
+	authClient, err := firebaseApp.Auth(context.Background())
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase Auth client: %v", err)
 	}
+	protected.Use(middleware.AuthMiddleware(authClient))
+
+	protected.Get("/profile", userController.GetProfile)
+	protected.Post("/upload-avatar", userController.UploadAvatar)
 }

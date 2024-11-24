@@ -1,41 +1,32 @@
 package server
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/GymLens/Cloud-Computing/config"
 	"github.com/GymLens/Cloud-Computing/internal/server/router"
 	"github.com/GymLens/Cloud-Computing/pkg/auth"
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
 
-type Server struct {
-	App  *fiber.App
-	Port string
-}
-
-func NewServer(cfg *config.Config) *Server {
+func Start() error {
 	app := fiber.New()
+	cfg := config.GetConfig()
 
-	v := validator.New()
-
-	firebaseAuth, err := auth.NewFirebaseAuth()
+	// Initialize Firebase App
+	firebaseApp, err := auth.InitializeFirebaseApp()
 	if err != nil {
-		log.Fatalf("Failed to initialize Firebase Auth: %v", err)
+		return err
+	}
+	if firebaseApp == nil {
+		return fmt.Errorf("firebaseApp is nil")
 	}
 
-	router.SetupRoutes(app, firebaseAuth, cfg, v)
+	// Setup routes
+	router.SetupRoutes(app, firebaseApp)
 
-	return &Server{
-		App:  app,
-		Port: cfg.Port,
-	}
-}
-
-func (s *Server) Start() {
-	log.Printf("Starting server on port %s", s.Port)
-	if err := s.App.Listen(":" + s.Port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
+	// Start server
+	log.Printf("Server is running on port %s", cfg.Port)
+	return app.Listen(":" + cfg.Port)
 }

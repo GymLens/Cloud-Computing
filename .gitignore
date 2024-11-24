@@ -1,12 +1,12 @@
 # Binaries
-/bin/
+/bin
 /vendor/
 
 # Go modules
 go.sum
 
-# Firebase account credentials
-/config/serviceAccountKey.json
+# Account credentials
+/scripts
 
 # Environment variables
 .env

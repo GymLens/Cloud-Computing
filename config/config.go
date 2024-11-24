@@ -6,34 +6,32 @@ import (
 )
 
 type Config struct {
-	Port           string
-	DatabaseURL    string
-	FirebaseConfig string
-	FirebaseAPIKey string
+	Port                  string
+	FirebaseAPIKey        string
+	GoogleCredentialsPath string
 }
 
-func LoadConfig() *Config {
+func GetConfig() *Config {
 	cfg := &Config{
-		Port:           getEnv("PORT", "8080"),
-		DatabaseURL:    getEnv("DATABASE_URL", ""),
-		FirebaseConfig: getEnv("FIREBASE_CONFIG", ""),
-		FirebaseAPIKey: getEnv("FIREBASE_API_KEY", ""),
-	}
-
-	if cfg.FirebaseConfig == "" {
-		log.Println("WARNING: FIREBASE_CONFIG is not set. Firebase authentication is disabled.")
+		Port:                  getEnv("PORT", "8080"),
+		FirebaseAPIKey:        getEnv("FIREBASE_API_KEY", ""),
+		GoogleCredentialsPath: getEnv("GOOGLE_APPLICATION_CREDENTIALS", ""),
 	}
 
 	if cfg.FirebaseAPIKey == "" {
 		log.Println("WARNING: FIREBASE_API_KEY is not set. Sign-In endpoint will not function.")
 	}
 
+	if cfg.GoogleCredentialsPath == "" {
+		log.Println("ERROR: GOOGLE_APPLICATION_CREDENTIALS is not set. Firebase services will not work.")
+	}
+
 	return cfg
 }
 
-func getEnv(key, fallback string) string {
+func getEnv(key, defaultVal string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
 	}
-	return fallback
+	return defaultVal
 }

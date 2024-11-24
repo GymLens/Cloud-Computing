@@ -1,7 +1,12 @@
 package models
 
+import "time"
+
 type User struct {
-	ID    int64  `json:"id"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
+	UID       string    `json:"uid"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Created   time.Time `json:"created" firestore:"created"`
+	SignedIn  time.Time `json:"signedIn" firestore:"signedIn"`
+	AvatarURL string    `json:"avatarUrl,omitempty"`
 }
