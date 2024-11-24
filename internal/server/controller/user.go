@@ -53,7 +53,6 @@ func (ctr *UserController) UploadAvatar(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to upload file"})
 	}
 
-	// Update user's avatar URL in Firestore (assuming the bucket is public or has proper permissions)
 	avatarURL := "https://storage.googleapis.com/" + storageService.BucketName + "/" + objectName
 	updateData := map[string]interface{}{
 		"avatarUrl": avatarURL,

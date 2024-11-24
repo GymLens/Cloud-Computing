@@ -14,7 +14,7 @@ func Start() error {
 	app := fiber.New()
 	cfg := config.GetConfig()
 
-	// Initialize Firebase App
+	// Firebase Init
 	firebaseApp, err := auth.InitializeFirebaseApp()
 	if err != nil {
 		return err
@@ -23,10 +23,8 @@ func Start() error {
 		return fmt.Errorf("firebaseApp is nil")
 	}
 
-	// Setup routes
 	router.SetupRoutes(app, firebaseApp)
 
-	// Start server
 	log.Printf("Server is running on port %s", cfg.Port)
 	return app.Listen(":" + cfg.Port)
 }
