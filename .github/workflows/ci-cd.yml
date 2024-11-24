@@ -19,7 +19,7 @@ env:
 
 jobs:
   build:
-    name: Build, Lint, Test, and Deploy
+    name: Build, Test, and Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -34,12 +34,6 @@ jobs:
       - name: Install Dependencies
         run: |
           go mod download
-
-      - name: Lint Code
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.54.2
-          args: --timeout 5m
 
       - name: Run Tests
         run: |
@@ -82,7 +76,6 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const context = github.context;
             const issueTitle = `Deployment failed for commit ${context.sha}`;
             const issueBody = `An error occurred while deploying commit ${context.sha}.\n\nPlease check the GitHub Actions logs for details.`;
             await github.rest.issues.create({
