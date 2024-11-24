@@ -4,7 +4,7 @@ options:
 substitutions:
   _SERVICE_NAME: go-fiber-api
   _REGION: asia-southeast2
-  _REPO_NAME: go-fiber-api
+  _REPO_NAME: gym-lens
   _IMAGE_NAME: go-fiber-api
 
 steps:
