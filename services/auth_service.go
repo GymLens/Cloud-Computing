@@ -79,7 +79,10 @@ func (s *AuthService) SignIn(email, password string) (string, error) {
 	}
 
 	var respData map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&respData)
+	err = json.NewDecoder(resp.Body).Decode(&respData)
+	if err != nil {
+		return "", err
+	}
 
 	idToken, ok := respData["idToken"].(string)
 	if !ok {
