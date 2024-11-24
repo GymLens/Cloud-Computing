@@ -14,8 +14,12 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
   SERVICE_NAME: go-fiber-api
-  REPO_NAME: go-fiber-api
+  REPO_NAME: gym-lens
   IMAGE_NAME: go-fiber-api
+
+permissions:
+  contents: read
+  issues: write
 
 jobs:
   build:
@@ -75,6 +79,7 @@ jobs:
         if: failure()
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const issueTitle = `Deployment failed for commit ${context.sha}`;
             const issueBody = `An error occurred while deploying commit ${context.sha}.\n\nPlease check the GitHub Actions logs for details.`;
