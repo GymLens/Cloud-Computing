@@ -4,16 +4,16 @@ options:
 substitutions:
   _SERVICE_NAME: go-fiber-api
   _REGION: asia-southeast2
-  _REPO_NAME: gym-lens
+  _REPO_NAME: go-fiber-api
   _IMAGE_NAME: go-fiber-api
 
 steps:
-  - name: 'gcr.io/cloud-builders/go'
-    args: ['mod', 'download']
+  - name: 'gcr.io/cloud-builders/git'
+    args: ['clone', 'https://github.com/GymLens/Cloud-Computing.git', '.']
     dir: '.'
 
-  - name: 'golangci/golangci-lint:v1.54.2'
-    args: ['run', '--timeout', '5m']
+  - name: 'gcr.io/cloud-builders/go'
+    args: ['mod', 'download']
     dir: '.'
 
   - name: 'gcr.io/cloud-builders/go'
@@ -28,6 +28,7 @@ steps:
         'asia-southeast2-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_IMAGE_NAME:$SHORT_SHA',
         '.'
       ]
+    dir: '.'
 
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -35,6 +36,7 @@ steps:
         'push',
         'asia-southeast2-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_IMAGE_NAME:$SHORT_SHA'
       ]
+    dir: '.'
 
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
@@ -51,6 +53,7 @@ steps:
         else
           echo "Not deploying because branch is not main."
         fi
+    dir: '.'
 
 images:
   - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_IMAGE_NAME:$SHORT_SHA'
