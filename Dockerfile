@@ -16,8 +16,8 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
-COPY --from=builder ./bin/GymLens .
+COPY --from=builder /Cloud-Computing/bin/GymLens .
 
 EXPOSE 8080
 
-CMD ["./cmd/app"]
+CMD ["./GymLens"]
