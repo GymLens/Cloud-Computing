@@ -2,9 +2,6 @@
 /bin
 /vendor/
 
-# Go modules
-go.sum
-
 # Account credentials
 /scripts
 
