@@ -6,6 +6,7 @@ substitutions:
   _REGION: asia-southeast2
   _REPO_NAME: gym-lens
   _IMAGE_NAME: go-fiber-api
+  _BRANCH_NAME: ${BRANCH_NAME}
 
 steps:
   - name: 'gcr.io/cloud-builders/go'
@@ -41,7 +42,7 @@ steps:
     args:
       - '-c'
       - |
-        if [ "$BRANCH_NAME" = "main" ]; then
+        if [ "$_BRANCH_NAME" = "main" ]; then
           gcloud run deploy $_SERVICE_NAME \
             --image asia-southeast2-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_IMAGE_NAME:$SHORT_SHA \
             --region $_REGION \
