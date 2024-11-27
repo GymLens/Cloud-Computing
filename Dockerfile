@@ -1,26 +1,28 @@
+# Stage 1: Build the Go application
 FROM golang:1.22 as builder
 
 WORKDIR /app
 
+# Copy Go modules
 COPY go.mod go.sum ./
+RUN go mod download
 
-RUN go mod tidy
-
+# Copy application source code
 COPY . .
 
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json
-ENV FIREBASE_API_KEY=AIzaSyAfiSRE7V-6ZGyfw4vL41RINKnSqFeqRJg
-
-COPY ./scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json /app/scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json
-
+# Build the application
 RUN go build -o /bin/GymLens ./cmd/app
 
+# Stage 2: Create a minimal Docker image
 FROM gcr.io/distroless/base
 
+WORKDIR /
+
+# Copy the binary
 COPY --from=builder /bin/GymLens /bin/GymLens
 
-COPY --from=builder /app/scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json /app/scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json
+# Copy other necessary files (like config, if any)
+COPY --from=builder /app/scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json /app/scripts/
 
-WORKDIR /app
-
+# Set the command to run the application
 CMD ["/bin/GymLens"]

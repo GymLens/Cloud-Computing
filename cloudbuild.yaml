@@ -12,7 +12,7 @@ steps:
   - name: 'gcr.io/cloud-builders/go'
     env:
       - 'GO111MODULE=on'
-    args: ['mod', 'download']
+    args: ['mod', 'tidy']
     dir: '.'
 
   - name: 'gcr.io/cloud-builders/go'
