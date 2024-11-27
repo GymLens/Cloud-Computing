@@ -4,8 +4,8 @@ options:
 substitutions:
   _SERVICE_NAME: go-fiber-api
   _REGION: asia-southeast2
-  _REPO_NAME: gym-lens
-  _IMAGE_NAME: go-fiber-api
+  _REPO_NAME: go-fiber
+  _IMAGE_NAME: go-fiber-image
   _BRANCH_NAME: ${BRANCH_NAME}
 
 steps:
@@ -52,7 +52,6 @@ steps:
         else
           echo "Not deploying because branch is not main."
         fi
-    dir: '.'
 
 images:
   - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_IMAGE_NAME:$SHORT_SHA'

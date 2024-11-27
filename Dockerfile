@@ -1,23 +1,26 @@
-FROM golang:1.22 AS builder
+FROM golang:1.22 as builder
 
-WORKDIR /Cloud-Computing
+WORKDIR /app
 
 COPY go.mod go.sum ./
 
-RUN go mod download
+RUN go mod tidy
 
 COPY . .
 
-RUN go build -o bin/GymLens ./cmd/app
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json
+ENV FIREBASE_API_KEY=AIzaSyAfiSRE7V-6ZGyfw4vL41RINKnSqFeqRJg
 
-FROM alpine:latest
+COPY ./scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json /app/scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json
 
-RUN apk --no-cache add ca-certificates
+RUN go build -o /bin/GymLens ./cmd/app
 
-WORKDIR /root/
+FROM gcr.io/distroless/base
 
-COPY --from=builder /Cloud-Computing/bin/GymLens .
+COPY --from=builder /bin/GymLens /bin/GymLens
 
-EXPOSE 8080
+COPY --from=builder /app/scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json /app/scripts/gym-lens-firebase-adminsdk-9hjhw-5be3ba8bee.json
 
-CMD ["./GymLens"]
+WORKDIR /app
+
+CMD ["/bin/GymLens"]
