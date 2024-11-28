@@ -7,6 +7,7 @@ substitutions:
   _REPO_NAME: go-fiber
   _IMAGE_NAME: go-fiber-image
   _BRANCH_NAME: ${BRANCH_NAME}
+  _SERVICE_ACCOUNT: github-actions-deployer@gym-lens.iam.gserviceaccount.com
 
 steps:
   - name: 'gcr.io/cloud-builders/go'
@@ -52,7 +53,8 @@ steps:
             --region $_REGION \
             --platform managed \
             --allow-unauthenticated \
-            --set-secrets ENV_VAR_1=projects/$PROJECT_ID/secrets/ENV_VAR_1:latest,ENV_VAR_2=projects/$PROJECT_ID/secrets/ENV_VAR_2:latest
+            --service-account $_SERVICE_ACCOUNT \
+            --set-secrets FIREBASE_API_KEY=projects/$PROJECT_ID/secrets/FIREBASE_API_KEY:latest,GOOGLE_APPLICATION_CREDENTIALS=projects/$PROJECT_ID/secrets/GOOGLE_APPLICATION_CREDENTIALS:latest,PORT=projects/$PROJECT_ID/secrets/PORT:latest,
         else
           echo "Not deploying because branch is not main."
         fi

@@ -3,24 +3,34 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
+      - dev
       - main
 
 jobs:
-  build-and-deploy:
+  build:
+    name: Trigger Google Cloud Build
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      # Checkout the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-    - name: Authenticate with GCP
-      env:
-        GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-      run: |
-        echo $GOOGLE_APPLICATION_CREDENTIALS > keyfile.json
-        gcloud auth activate-service-account --key-file=keyfile.json
-        gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+      # Authenticate with Google Cloud
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
-    - name: Trigger Cloud Build
-      run: |
-        gcloud builds submit --config cloudbuild.yaml
+      # Set up Google Cloud SDK
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      # Trigger Google Cloud Build
+      - name: Trigger Cloud Build
+        run: |
+          gcloud builds submit \
+            --config=cloudbuild.yaml \
+            --substitutions=_SERVICE_NAME="go-fiber-api",_REGION="asia-southeast2",_REPO_NAME="go-fiber",_IMAGE_NAME="go-fiber-image",_BRANCH_NAME="${{ github.ref_name }}"
