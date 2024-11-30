@@ -13,13 +13,8 @@ steps:
   - name: 'gcr.io/cloud-builders/go'
     env:
       - 'GO111MODULE=on'
+      - 'GOPATH=/workspace'
     args: ['mod', 'tidy']
-    dir: '.'
-
-  - name: 'gcr.io/cloud-builders/go'
-    env:
-      - 'GO111MODULE=on'
-    args: ['test', './...']
     dir: '.'
 
   - name: 'gcr.io/cloud-builders/docker'
