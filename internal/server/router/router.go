@@ -21,9 +21,11 @@ func SetupRoutes(app *fiber.App, firebaseApp *firebase.App) {
 
 	authController := controller.NewAuthController(firebaseApp)
 	userController := controller.NewUserController(firebaseApp)
+	articleController := controller.NewArticleController(firebaseApp) // Pass firebaseApp here
 
 	apiGroup.Post("/signup", authController.SignUp)
 	apiGroup.Post("/signin", authController.SignIn)
+	apiGroup.Get("/article", articleController.GetArticles)
 
 	// Protected routes
 	protected := apiGroup.Group("/user")
