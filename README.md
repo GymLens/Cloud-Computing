@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/GymLens/.github/main/profile/assets/logo.png" alt="Logo GymLens" style="width: 20%;">
-  <h1>REST APIs</h1>
+  <img src="https://raw.githubusercontent.com/GymLens/.github/main/profile/assets/gym-lens-banner.png" alt="Logo GymLens" style="width: 20%;">
+  <h1>Backend REST APIs</h1>
 </div>
 
 ## Tools
